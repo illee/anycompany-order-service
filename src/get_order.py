@@ -7,6 +7,7 @@ table = dynamodb.Table("anycompany-orders")
 
 
 def handler(event, context):
+    # Returns order details for the given orderId
     order_id = event["pathParameters"]["orderId"]
     response = table.get_item(Key={"orderId": order_id})
     item = response.get("Item")
