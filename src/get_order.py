@@ -16,7 +16,7 @@ def handler(event, context):
         "statusCode": 200,
         "body": json.dumps({
             "orderId": item["orderId"],
-            "orderStatus": item["status"],
+            "status": item["status"],
             "amount": item["amount"],
         }),
     }
