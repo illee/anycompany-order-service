@@ -1,0 +1,33 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: AnyCompany Order Service
+
+Resources:
+  OrderTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: anycompany-orders
+      AttributeDefinitions:
+        - AttributeName: orderId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: orderId
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+      SSESpecification:
+        SSEEnabled: true
+
+  GetOrderFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/get_order.handler
+      Runtime: python3.12
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref OrderTable
+      Events:
+        GetOrderApi:
+          Type: Api
+          Properties:
+            Path: /orders/{orderId}
+            Method: get
