@@ -1,12 +1,24 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Transform: AWS::Serverless-2016-10-31
-Description: AnyCompany Order Service
+Description: >
+  AnyCompany Order Service - Security Agent 침투 테스트 데모.
+  의도적으로 IDOR와 중복 환불 취약점을 포함한다. 격리된 데모 환경 전용.
+
+Globals:
+  Function:
+    Runtime: python3.12
+    Timeout: 10
+    MemorySize: 128
+    Environment:
+      Variables:
+        ORDER_TABLE: !Ref OrderTable
+        REFUND_TABLE: !Ref RefundTable
 
 Resources:
   OrderTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: anycompany-orders
+      TableName: anycompany-orders-pentest
       AttributeDefinitions:
         - AttributeName: orderId
           AttributeType: S
@@ -17,17 +29,75 @@ Resources:
       SSESpecification:
         SSEEnabled: true
 
+  RefundTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: anycompany-refunds-pentest
+      AttributeDefinitions:
+        - AttributeName: refundId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: refundId
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+      SSESpecification:
+        SSEEnabled: true
+
+  OrderApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: prod
+      # 데모 단순화를 위해 API 레벨 인증기를 두지 않고,
+      # 애플리케이션 코드가 X-Customer-Id 헤더로 호출자를 식별한다.
+
   GetOrderFunction:
     Type: AWS::Serverless::Function
     Properties:
       Handler: src/get_order.handler
-      Runtime: python3.12
       Policies:
         - DynamoDBReadPolicy:
             TableName: !Ref OrderTable
       Events:
-        GetOrderApi:
+        GetOrder:
           Type: Api
           Properties:
+            RestApiId: !Ref OrderApi
             Path: /orders/{orderId}
             Method: get
+
+  RefundOrderFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/refund_order.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref OrderTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref RefundTable
+      Events:
+        RefundOrder:
+          Type: Api
+          Properties:
+            RestApiId: !Ref OrderApi
+            Path: /orders/{orderId}/refund
+            Method: post
+
+  SeedFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: src/seed.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref OrderTable
+      Events:
+        Seed:
+          Type: Api
+          Properties:
+            RestApiId: !Ref OrderApi
+            Path: /seed
+            Method: post
+
+Outputs:
+  ApiBaseUrl:
+    Description: 침투 테스트 대상 API 베이스 URL
+    Value: !Sub "https://${OrderApi}.execute-api.${AWS::Region}.amazonaws.com/prod"
