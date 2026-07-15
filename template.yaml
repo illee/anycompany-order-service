@@ -23,8 +23,11 @@ Resources:
       Handler: src/get_order.handler
       Runtime: python3.12
       Policies:
-        - DynamoDBReadPolicy:
-            TableName: !Ref OrderTable
+        - Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action: "dynamodb:*"
+              Resource: !GetAtt OrderTable.Arn
       Events:
         GetOrderApi:
           Type: Api
